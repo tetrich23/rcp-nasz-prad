@@ -5,103 +5,46 @@
   <title>Panel Administratora</title>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
-
   <style>
     body {
-      margin: 0;
-      font-family: 'Roboto', sans-serif;
-      background: url('https://images.unsplash.com/photo-1603791440384-56cd371ee9a7') no-repeat center center fixed;
-      background-size: cover;
-      color: #fff;
+      font-family: Arial, sans-serif;
+      background: #f1f1f1;
+      padding: 2em;
     }
-
-    .container {
-      background-color: rgba(0, 0, 0, 0.85);
-      padding: 40px;
-      border-radius: 12px;
-      max-width: 90%;
-      margin: 40px auto;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-    }
-
-    h2 {
-      text-align: center;
-      margin-bottom: 24px;
-    }
-
-    button {
-      padding: 10px 20px;
-      margin: 10px 10px 20px 0;
-      background-color: #007bff;
-      border: none;
-      border-radius: 6px;
-      font-size: 16px;
-      font-weight: bold;
-      color: white;
-      cursor: pointer;
-      transition: background-color 0.3s;
-    }
-
-    button:hover {
-      background-color: #0056b3;
-    }
-
-    select {
-      padding: 8px;
-      margin: 10px 0 20px;
-      border-radius: 6px;
-      border: none;
-      font-size: 16px;
-    }
-
     table {
       width: 100%;
       border-collapse: collapse;
-      background-color: #222;
-      color: #fff;
+      margin-top: 1em;
     }
-
     th, td {
-      padding: 12px;
-      border: 1px solid #444;
+      border: 1px solid #ccc;
+      padding: 0.5em;
       text-align: center;
     }
-
     th {
-      background-color: #333;
+      background: #eee;
     }
-
-    tr:hover {
-      background-color: #2a2a2a;
+    button {
+      margin-top: 1em;
+      padding: 0.5em 1em;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h2>Panel Administratora</h2>
-
-    <label for="filter">Filtruj pracownika:</label>
-    <select id="filter">
-      <option value="">Wszyscy</option>
-    </select>
-
-    <button onclick="eksportuj()">Pobierz Excel (wszyscy)</button>
-    <button onclick="eksportuj(true)">Pobierz Excel (wybrany)</button>
-
-    <table>
-      <thead>
-        <tr>
-          <th>Pracownik</th>
-          <th>Data</th>
-          <th>Start</th>
-          <th>Koniec</th>
-        </tr>
-      </thead>
-      <tbody id="tabela"></tbody>
-    </table>
-  </div>
+  <h2>Panel Administratora</h2>
+  <button onclick="eksportujCSV()">Eksportuj do CSV</button>
+  <table id="tabela">
+    <thead>
+      <tr>
+        <th>Pracownik</th>
+        <th>Data</th>
+        <th>Godzina przyjścia</th>
+        <th>Godzina wyjścia</th>
+        <th>Ilość godzin</th>
+      </tr>
+    </thead>
+    <tbody id="tabela-body"></tbody>
+  </table>
 
   <script>
     const firebaseConfig = {
@@ -113,60 +56,45 @@
       appId: "1:1040181155679:web:8ffe7609b67a5e29bd08ea",
       measurementId: "G-JR8QXZZYXE"
     };
-
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
+    const tabelaBody = document.getElementById("tabela-body");
+    let wszystkieDane = [];
+
+    function obliczGodziny(start, end) {
+      const [sh, sm] = start.split(":").map(Number);
+      const [eh, em] = end.split(":").map(Number);
+      const startMin = sh * 60 + sm;
+      const endMin = eh * 60 + em;
+      const godziny = (endMin - startMin) / 60;
+      return godziny.toFixed(2);
+    }
+
     async function wczytaj() {
       const snap = await db.collection("godziny").get();
-      const tabela = document.getElementById("tabela");
-      const filter = document.getElementById("filter");
-
-      const unikalni = new Set();
-      tabela.innerHTML = "";
-
+      tabelaBody.innerHTML = "";
+      wszystkieDane = [];
       snap.forEach(doc => {
         const d = doc.data();
-        if (!d.login || !d.data || !d.start || !d.end) return;
-
-        unikalni.add(d.login);
-
+        const godziny = obliczGodziny(d.start, d.end);
+        wszystkieDane.push({ login: d.login, data: d.data, start: d.start, end: d.end, godziny });
         const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${d.login}</td>
-          <td>${d.data}</td>
-          <td>${d.start}</td>
-          <td>${d.end}</td>
-        `;
-        tabela.appendChild(tr);
-      });
-
-      filter.innerHTML = `<option value="">Wszyscy</option>`;
-      unikalni.forEach(login => {
-        filter.innerHTML += `<option value="${login}">${login}</option>`;
+        tr.innerHTML = `<td>${d.login}</td><td>${d.data}</td><td>${d.start}</td><td>${d.end}</td><td>${godziny}</td>`;
+        tabelaBody.appendChild(tr);
       });
     }
 
-    function eksportuj(tylkoWybrany = false) {
-      const rows = [];
-      const selected = document.getElementById("filter").value;
-      document.querySelectorAll("#tabela tr").forEach(tr => {
-        const tds = tr.querySelectorAll("td");
-        const login = tds[0].innerText;
-        if (!tylkoWybrany || login === selected) {
-          rows.push({
-            Pracownik: login,
-            Data: tds[1].innerText,
-            Start: tds[2].innerText,
-            Koniec: tds[3].innerText
-          });
-        }
+    function eksportujCSV() {
+      let csv = "Pracownik;Data;Godzina przyjścia;Godzina wyjścia;Ilość godzin\n";
+      wszystkieDane.forEach(row => {
+        csv += `${row.login};${row.data};${row.start};${row.end};${row.godziny}\n`;
       });
-
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(rows);
-      XLSX.utils.book_append_sheet(wb, ws, "Godziny");
-      XLSX.writeFile(wb, tylkoWybrany && selected ? `${selected}.xlsx` : "godziny_pracownikow.xlsx");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "obecnosc.csv";
+      link.click();
     }
 
     wczytaj();
