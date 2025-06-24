@@ -9,10 +9,11 @@
 <body>
   <h2>Panel Administratora</h2>
   <p id="loginDisplay"></p>
+  <button onclick="eksportujCSV()">📥 Eksportuj WSZYSTKO do Excela</button>
   <ul id="lista"></ul>
 
   <script>
-    // Konfiguracja Firebase — taka sama jak w loginie/pracowniku
+    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyAY0AW9hCysl2jNTiWVolraGN841Q2BMz4",
       authDomain: "rcp-online.firebaseapp.com",
@@ -23,27 +24,62 @@
       measurementId: "G-JR8QXZZYXE"
     };
 
-    // Inicjalizacja
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    // Pokazanie zalogowanego użytkownika
     const login = localStorage.getItem("login");
     document.getElementById("loginDisplay").innerText = "Zalogowany jako: " + login;
 
-    // Wczytanie wszystkich wpisów
+    let dane = []; // tutaj będziemy przechowywać wszystkie wpisy
+
     async function wczytajWszystko() {
       const snap = await db.collection("godziny").get();
       const lista = document.getElementById("lista");
       lista.innerHTML = "";
+      dane = [];
+
+      const pracownicy = {};
 
       snap.forEach(doc => {
         const g = doc.data();
-        lista.innerHTML += `<li><strong>${g.login}</strong>: ${g.data} | ${g.start} - ${g.end}</li>`;
+        dane.push(g);
+
+        if (!pracownicy[g.login]) pracownicy[g.login] = [];
+        pracownicy[g.login].push(g);
+
+        lista.innerHTML += `
+          <li><strong>${g.login}</strong>: ${g.data} | ${g.start} - ${g.end}</li>
+        `;
       });
+
+      // Dodaj eksport dla każdego pracownika osobno
+      for (const pracownik in pracownicy) {
+        const btn = document.createElement("button");
+        btn.textContent = `📤 Eksportuj: ${pracownik}`;
+        btn.onclick = () => eksportujCSV(pracownicy[pracownik], pracownik);
+        lista.appendChild(document.createElement("br"));
+        lista.appendChild(btn);
+      }
     }
 
-    // Wczytaj od razu po załadowaniu
+    function eksportujCSV(daneDoEksportu = dane, nazwa = "wszyscy") {
+      if (!daneDoEksportu.length) return alert("Brak danych do eksportu.");
+
+      const naglowki = "Login,Data,Godzina przyjścia,Godzina wyjścia\n";
+      const wiersze = daneDoEksportu.map(e => 
+        `${e.login},${e.data},${e.start},${e.end}`
+      ).join("\n");
+
+      const csv = naglowki + wiersze;
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `raport_${nazwa}.csv`);
+      link.click();
+    }
+
     wczytajWszystko();
   </script>
 </body>
