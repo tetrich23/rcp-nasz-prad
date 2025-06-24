@@ -5,18 +5,8 @@
   <title>Panel Pracownika</title>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-</head>
-<body>
-  <h2>Panel Pracownika</h2>
-  <p id="loginDisplay"></p>
-  <label>Data: <input type="date" id="data"></label><br>
-  <label>Godzina przyjścia: <input type="time" id="start"></label><br>
-  <label>Godzina wyjścia: <input type="time" id="end"></label><br>
-  <button onclick="zapisz()">Zapisz</button>
-  <ul id="lista"></ul>
-
   <script>
-    // Konfiguracja Firebase (taka sama jak w index.html)
+    // Konfiguracja Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyAY0AW9hCysl2jNTiWVolraGN841Q2BMz4",
       authDomain: "rcp-online.firebaseapp.com",
@@ -30,29 +20,52 @@
     // Inicjalizacja Firebase
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
+  </script>
+</head>
+<body>
+  <h2>Panel Pracownika</h2>
+  <p id="loginDisplay"></p>
 
+  <label>Data: <input type="date" id="data"></label><br>
+  <label>Godzina przyjścia: <input type="time" id="start"></label><br>
+  <label>Godzina wyjścia: <input type="time" id="end"></label><br>
+  <button onclick="zapisz()">Zapisz</button>
+
+  <h3>Twoje godziny:</h3>
+  <ul id="lista"></ul>
+
+  <script>
+    // Odczyt loginu z localStorage
     const login = localStorage.getItem("login");
-    document.getElementById("loginDisplay").innerText = "Zalogowany jako: " + login;
+    if (!login) {
+      alert("Nie jesteś zalogowany!");
+      window.location.href = "index.html";
+    } else {
+      document.getElementById("loginDisplay").innerText = "Zalogowany jako: " + login;
+    }
 
+    // Funkcja zapisująca godziny
     async function zapisz() {
       const data = document.getElementById("data").value;
       const start = document.getElementById("start").value;
       const end = document.getElementById("end").value;
 
       if (!data || !start || !end) {
-        return alert("Uzupełnij wszystkie pola!");
+        alert("Uzupełnij wszystkie pola!");
+        return;
       }
 
       try {
         await db.collection("godziny").add({ login, data, start, end });
-        alert("Zapisano");
+        alert("Zapisano!");
         wczytaj();
-      } catch (error) {
-        console.error("Błąd zapisu:", error);
-        alert("Wystąpił błąd podczas zapisu.");
+      } catch (err) {
+        console.error("Błąd zapisu:", err);
+        alert("Nie udało się zapisać danych.");
       }
     }
 
+    // Funkcja wczytująca dane
     async function wczytaj() {
       try {
         const snap = await db.collection("godziny").where("login", "==", login).get();
@@ -62,12 +75,12 @@
           const g = doc.data();
           lista.innerHTML += `<li>${g.data}: ${g.start} - ${g.end}</li>`;
         });
-      } catch (error) {
-        console.error("Błąd pobierania danych:", error);
-        alert("Nie udało się załadować danych.");
+      } catch (err) {
+        console.error("Błąd wczytywania:", err);
       }
     }
 
+    // Automatyczne wczytanie danych po otwarciu strony
     wczytaj();
   </script>
 </body>
