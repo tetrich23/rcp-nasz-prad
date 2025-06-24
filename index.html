@@ -1,9 +1,73 @@
+<!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Logowanie - RCP</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Roboto', sans-serif;
+      background: url('background.jpg') no-repeat center center fixed;
+      background-size: cover;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+
+    .login-box {
+      background-color: rgba(255, 255, 255, 0.95);
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+    }
+
+    h2 {
+      margin-bottom: 20px;
+      color: #222;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-box">
+    <h2>Logowanie do systemu RCP</h2>
+    <input id="login" placeholder="Login (np. jan.kowalski)">
+    <input id="haslo" type="password" placeholder="Hasło">
+    <button onclick="zaloguj()">Zaloguj</button>
+  </div>
+
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyAY0AW9hCysl2jNTiWVolraGN841Q2BMz4",
@@ -14,22 +78,15 @@
       appId: "1:1040181155679:web:8ffe7609b67a5e29bd08ea",
       measurementId: "G-JR8QXZZYXE"
     };
+
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
-  </script>
-</head>
-<body>
-  <h2>Logowanie</h2>
-  <input id="login" placeholder="Login (np. jan.kowalski)"><br>
-  <input id="haslo" type="password" placeholder="Hasło"><br>
-  <button onclick="zaloguj()">Zaloguj</button>
 
-  <script>
     async function zaloguj() {
       const login = document.getElementById("login").value.trim();
       const haslo = document.getElementById("haslo").value.trim();
 
-      const doc = await db.collection("users").doc(login).get();
+      const doc = await db.collection("uzytkownicy").doc(login).get();
       if (!doc.exists) return alert("Błędny login");
 
       const data = doc.data();
