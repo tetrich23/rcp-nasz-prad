@@ -1,47 +1,50 @@
+<!DOCTYPE html>
 <html lang="pl">
 <head>
   <meta charset="UTF-8" />
-  <title>Panel Admina</title>
+  <title>Panel Administratora</title>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 </head>
 <body>
   <h2>Panel Administratora</h2>
-  <button onclick="eksport()">Eksport do CSV</button>
-  <table border="1" id="tabela">
-    <thead><tr><th>Pracownik</th><th>Data</th><th>Start</th><th>Koniec</th></tr></thead>
-    <tbody></tbody>
-  </table>
+  <p id="loginDisplay"></p>
+  <ul id="lista"></ul>
 
   <script>
-    const firebaseConfig = { /* ...jak wyżej */ };
+    // Konfiguracja Firebase — taka sama jak w loginie/pracowniku
+    const firebaseConfig = {
+      apiKey: "AIzaSyAY0AW9hCysl2jNTiWVolraGN841Q2BMz4",
+      authDomain: "rcp-online.firebaseapp.com",
+      projectId: "rcp-online",
+      storageBucket: "rcp-online.appspot.com",
+      messagingSenderId: "1040181155679",
+      appId: "1:1040181155679:web:8ffe7609b67a5e29bd08ea",
+      measurementId: "G-JR8QXZZYXE"
+    };
+
+    // Inicjalizacja
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    async function eksport() {
+    // Pokazanie zalogowanego użytkownika
+    const login = localStorage.getItem("login");
+    document.getElementById("loginDisplay").innerText = "Zalogowany jako: " + login;
+
+    // Wczytanie wszystkich wpisów
+    async function wczytajWszystko() {
       const snap = await db.collection("godziny").get();
-      let csv = "login,data,start,end\n";
+      const lista = document.getElementById("lista");
+      lista.innerHTML = "";
+
       snap.forEach(doc => {
-        const d = doc.data();
-        csv += `${d.login},${d.data},${d.start},${d.end}\n`;
+        const g = doc.data();
+        lista.innerHTML += `<li><strong>${g.login}</strong>: ${g.data} | ${g.start} - ${g.end}</li>`;
       });
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = "raport.csv";
-      link.click();
     }
 
-    async function pokaz() {
-      const snap = await db.collection("godziny").get();
-      const tbody = document.querySelector("#tabela tbody");
-      snap.forEach(doc => {
-        const d = doc.data();
-        const row = `<tr><td>${d.login}</td><td>${d.data}</td><td>${d.start}</td><td>${d.end}</td></tr>`;
-        tbody.innerHTML += row;
-      });
-    }
-    pokaz();
+    // Wczytaj od razu po załadowaniu
+    wczytajWszystko();
   </script>
 </body>
 </html>
