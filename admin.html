@@ -5,15 +5,105 @@
   <title>Panel Administratora</title>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Roboto', sans-serif;
+      background: url('https://images.unsplash.com/photo-1603791440384-56cd371ee9a7') no-repeat center center fixed;
+      background-size: cover;
+      color: #fff;
+    }
+
+    .container {
+      background-color: rgba(0, 0, 0, 0.85);
+      padding: 40px;
+      border-radius: 12px;
+      max-width: 90%;
+      margin: 40px auto;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    button {
+      padding: 10px 20px;
+      margin: 10px 10px 20px 0;
+      background-color: #007bff;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: bold;
+      color: white;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    select {
+      padding: 8px;
+      margin: 10px 0 20px;
+      border-radius: 6px;
+      border: none;
+      font-size: 16px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background-color: #222;
+      color: #fff;
+    }
+
+    th, td {
+      padding: 12px;
+      border: 1px solid #444;
+      text-align: center;
+    }
+
+    th {
+      background-color: #333;
+    }
+
+    tr:hover {
+      background-color: #2a2a2a;
+    }
+  </style>
 </head>
 <body>
-  <h2>Panel Administratora</h2>
-  <p id="loginDisplay"></p>
-  <button onclick="eksportujCSV()">📥 Eksportuj WSZYSTKO do Excela</button>
-  <ul id="lista"></ul>
+  <div class="container">
+    <h2>Panel Administratora</h2>
+
+    <label for="filter">Filtruj pracownika:</label>
+    <select id="filter">
+      <option value="">Wszyscy</option>
+    </select>
+
+    <button onclick="eksportuj()">Pobierz Excel (wszyscy)</button>
+    <button onclick="eksportuj(true)">Pobierz Excel (wybrany)</button>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Pracownik</th>
+          <th>Data</th>
+          <th>Start</th>
+          <th>Koniec</th>
+        </tr>
+      </thead>
+      <tbody id="tabela"></tbody>
+    </table>
+  </div>
 
   <script>
-    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyAY0AW9hCysl2jNTiWVolraGN841Q2BMz4",
       authDomain: "rcp-online.firebaseapp.com",
@@ -27,60 +117,59 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    const login = localStorage.getItem("login");
-    document.getElementById("loginDisplay").innerText = "Zalogowany jako: " + login;
-
-    let dane = []; // tutaj będziemy przechowywać wszystkie wpisy
-
-    async function wczytajWszystko() {
+    async function wczytaj() {
       const snap = await db.collection("godziny").get();
-      const lista = document.getElementById("lista");
-      lista.innerHTML = "";
-      dane = [];
+      const tabela = document.getElementById("tabela");
+      const filter = document.getElementById("filter");
 
-      const pracownicy = {};
+      const unikalni = new Set();
+      tabela.innerHTML = "";
 
       snap.forEach(doc => {
-        const g = doc.data();
-        dane.push(g);
+        const d = doc.data();
+        if (!d.login || !d.data || !d.start || !d.end) return;
 
-        if (!pracownicy[g.login]) pracownicy[g.login] = [];
-        pracownicy[g.login].push(g);
+        unikalni.add(d.login);
 
-        lista.innerHTML += `
-          <li><strong>${g.login}</strong>: ${g.data} | ${g.start} - ${g.end}</li>
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${d.login}</td>
+          <td>${d.data}</td>
+          <td>${d.start}</td>
+          <td>${d.end}</td>
         `;
+        tabela.appendChild(tr);
       });
 
-      // Dodaj eksport dla każdego pracownika osobno
-      for (const pracownik in pracownicy) {
-        const btn = document.createElement("button");
-        btn.textContent = `📤 Eksportuj: ${pracownik}`;
-        btn.onclick = () => eksportujCSV(pracownicy[pracownik], pracownik);
-        lista.appendChild(document.createElement("br"));
-        lista.appendChild(btn);
-      }
+      filter.innerHTML = `<option value="">Wszyscy</option>`;
+      unikalni.forEach(login => {
+        filter.innerHTML += `<option value="${login}">${login}</option>`;
+      });
     }
 
-    function eksportujCSV(daneDoEksportu = dane, nazwa = "wszyscy") {
-      if (!daneDoEksportu.length) return alert("Brak danych do eksportu.");
+    function eksportuj(tylkoWybrany = false) {
+      const rows = [];
+      const selected = document.getElementById("filter").value;
+      document.querySelectorAll("#tabela tr").forEach(tr => {
+        const tds = tr.querySelectorAll("td");
+        const login = tds[0].innerText;
+        if (!tylkoWybrany || login === selected) {
+          rows.push({
+            Pracownik: login,
+            Data: tds[1].innerText,
+            Start: tds[2].innerText,
+            Koniec: tds[3].innerText
+          });
+        }
+      });
 
-      const naglowki = "Login,Data,Godzina przyjścia,Godzina wyjścia\n";
-      const wiersze = daneDoEksportu.map(e => 
-        `${e.login},${e.data},${e.start},${e.end}`
-      ).join("\n");
-
-      const csv = naglowki + wiersze;
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", `raport_${nazwa}.csv`);
-      link.click();
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(rows);
+      XLSX.utils.book_append_sheet(wb, ws, "Godziny");
+      XLSX.writeFile(wb, tylkoWybrany && selected ? `${selected}.xlsx` : "godziny_pracownikow.xlsx");
     }
 
-    wczytajWszystko();
+    wczytaj();
   </script>
 </body>
 </html>
