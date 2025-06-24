@@ -1,0 +1,45 @@
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <title>Logowanie - RCP</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyAY0AW9hCysl2jNTiWVolraGN841Q2BMz4",
+      authDomain: "rcp-online.firebaseapp.com",
+      projectId: "rcp-online",
+      storageBucket: "rcp-online.appspot.com",
+      messagingSenderId: "1040181155679",
+      appId: "1:1040181155679:web:8ffe7609b67a5e29bd08ea",
+      measurementId: "G-JR8QXZZYXE"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+  </script>
+</head>
+<body>
+  <h2>Logowanie</h2>
+  <input id="login" placeholder="Login (np. jan.kowalski)"><br>
+  <input id="haslo" type="password" placeholder="Hasło"><br>
+  <button onclick="zaloguj()">Zaloguj</button>
+
+  <script>
+    async function zaloguj() {
+      const login = document.getElementById("login").value.trim();
+      const haslo = document.getElementById("haslo").value.trim();
+
+      const doc = await db.collection("uzytkownicy").doc(login).get();
+      if (!doc.exists) return alert("Błędny login");
+
+      const data = doc.data();
+      if (data.haslo !== haslo) return alert("Błędne hasło");
+
+      localStorage.setItem("login", login);
+      localStorage.setItem("rola", data.rola);
+
+      window.location.href = data.rola === "admin" ? "admin.html" : "employee.html";
+    }
+  </script>
+</body>
+</html>
