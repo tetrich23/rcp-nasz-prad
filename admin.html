@@ -8,8 +8,24 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #f1f1f1;
+      background-image: url('tlo.jpg');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
       padding: 2em;
+      color: #333;
+    }
+    .panel {
+      background-color: rgba(255, 255, 255, 0.9);
+      padding: 2em;
+      border-radius: 10px;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    select, button {
+      padding: 0.5em 1em;
+      margin-top: 1em;
+      font-size: 1em;
     }
     table {
       width: 100%;
@@ -24,27 +40,32 @@
     th {
       background: #eee;
     }
-    button {
-      margin-top: 1em;
-      padding: 0.5em 1em;
-    }
   </style>
 </head>
 <body>
-  <h2>Panel Administratora</h2>
-  <button onclick="eksportujCSV()">Eksportuj do CSV</button>
-  <table id="tabela">
-    <thead>
-      <tr>
-        <th>Pracownik</th>
-        <th>Data</th>
-        <th>Godzina przyjścia</th>
-        <th>Godzina wyjścia</th>
-        <th>Ilość godzin</th>
-      </tr>
-    </thead>
-    <tbody id="tabela-body"></tbody>
-  </table>
+  <div class="panel">
+    <h2>Panel Administratora</h2>
+
+    <label for="pracownikSelect">Wybierz pracownika:</label>
+    <select id="pracownikSelect" onchange="filtruj()">
+      <option value="wszyscy">Wszyscy</option>
+    </select>
+    <br>
+    <button onclick="eksportujCSV()">Eksportuj do CSV</button>
+
+    <table id="tabela">
+      <thead>
+        <tr>
+          <th>Pracownik</th>
+          <th>Data</th>
+          <th>Godzina przyjścia</th>
+          <th>Godzina wyjścia</th>
+          <th>Ilość godzin</th>
+        </tr>
+      </thead>
+      <tbody id="tabela-body"></tbody>
+    </table>
+  </div>
 
   <script>
     const firebaseConfig = {
@@ -60,6 +81,7 @@
     const db = firebase.firestore();
 
     const tabelaBody = document.getElementById("tabela-body");
+    const pracownikSelect = document.getElementById("pracownikSelect");
     let wszystkieDane = [];
 
     function obliczGodziny(start, end) {
@@ -75,25 +97,50 @@
       const snap = await db.collection("godziny").get();
       tabelaBody.innerHTML = "";
       wszystkieDane = [];
+      const unikalni = new Set();
+
       snap.forEach(doc => {
         const d = doc.data();
         const godziny = obliczGodziny(d.start, d.end);
         wszystkieDane.push({ login: d.login, data: d.data, start: d.start, end: d.end, godziny });
-        const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${d.login}</td><td>${d.data}</td><td>${d.start}</td><td>${d.end}</td><td>${godziny}</td>`;
-        tabelaBody.appendChild(tr);
+        unikalni.add(d.login);
+      });
+
+      pracownikSelect.innerHTML = '<option value="wszyscy">Wszyscy</option>';
+      unikalni.forEach(p => {
+        const opt = document.createElement("option");
+        opt.value = p;
+        opt.innerText = p;
+        pracownikSelect.appendChild(opt);
+      });
+
+      filtruj();
+    }
+
+    function filtruj() {
+      const wybrany = pracownikSelect.value;
+      tabelaBody.innerHTML = "";
+      wszystkieDane.forEach(row => {
+        if (wybrany === "wszyscy" || row.login === wybrany) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${row.login}</td><td>${row.data}</td><td>${row.start}</td><td>${row.end}</td><td>${row.godziny}</td>`;
+          tabelaBody.appendChild(tr);
+        }
       });
     }
 
     function eksportujCSV() {
+      const wybrany = pracownikSelect.value;
       let csv = "Pracownik;Data;Godzina przyjścia;Godzina wyjścia;Ilość godzin\n";
       wszystkieDane.forEach(row => {
-        csv += `${row.login};${row.data};${row.start};${row.end};${row.godziny}\n`;
+        if (wybrany === "wszyscy" || row.login === wybrany) {
+          csv += `${row.login};${row.data};${row.start};${row.end};${row.godziny}\n`;
+        }
       });
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      link.download = "obecnosc.csv";
+      link.download = `obecnosc_${wybrany}.csv`;
       link.click();
     }
 
