@@ -29,7 +29,7 @@
       const login = document.getElementById("login").value.trim();
       const haslo = document.getElementById("haslo").value.trim();
 
-      const doc = await db.collection("uzytkownicy").doc(login).get();
+      const doc = await db.collection("users").doc(login).get();
       if (!doc.exists) return alert("Błędny login");
 
       const data = doc.data();
