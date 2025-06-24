@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="pl">
 <head>
   <meta charset="UTF-8" />
@@ -15,7 +16,18 @@
   <ul id="lista"></ul>
 
   <script>
-    const firebaseConfig = { /* ...takie samo jak w index.html */ };
+    // Konfiguracja Firebase (taka sama jak w index.html)
+    const firebaseConfig = {
+      apiKey: "AIzaSyAY0AW9hCysl2jNTiWVolraGN841Q2BMz4",
+      authDomain: "rcp-online.firebaseapp.com",
+      projectId: "rcp-online",
+      storageBucket: "rcp-online.appspot.com",
+      messagingSenderId: "1040181155679",
+      appId: "1:1040181155679:web:8ffe7609b67a5e29bd08ea",
+      measurementId: "G-JR8QXZZYXE"
+    };
+
+    // Inicjalizacja Firebase
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
@@ -26,21 +38,36 @@
       const data = document.getElementById("data").value;
       const start = document.getElementById("start").value;
       const end = document.getElementById("end").value;
-      if (!data || !start || !end) return alert("Uzupełnij wszystkie pola!");
-      await db.collection("godziny").add({ login, data, start, end });
-      alert("Zapisano");
-      wczytaj();
+
+      if (!data || !start || !end) {
+        return alert("Uzupełnij wszystkie pola!");
+      }
+
+      try {
+        await db.collection("godziny").add({ login, data, start, end });
+        alert("Zapisano");
+        wczytaj();
+      } catch (error) {
+        console.error("Błąd zapisu:", error);
+        alert("Wystąpił błąd podczas zapisu.");
+      }
     }
 
     async function wczytaj() {
-      const snap = await db.collection("godziny").where("login", "==", login).get();
-      const lista = document.getElementById("lista");
-      lista.innerHTML = "";
-      snap.forEach(doc => {
-        const g = doc.data();
-        lista.innerHTML += `<li>${g.data}: ${g.start} - ${g.end}</li>`;
-      });
+      try {
+        const snap = await db.collection("godziny").where("login", "==", login).get();
+        const lista = document.getElementById("lista");
+        lista.innerHTML = "";
+        snap.forEach(doc => {
+          const g = doc.data();
+          lista.innerHTML += `<li>${g.data}: ${g.start} - ${g.end}</li>`;
+        });
+      } catch (error) {
+        console.error("Błąd pobierania danych:", error);
+        alert("Nie udało się załadować danych.");
+      }
     }
+
     wczytaj();
   </script>
 </body>
