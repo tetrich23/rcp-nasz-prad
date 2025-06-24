@@ -1,0 +1,47 @@
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <title>Panel Admina</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+</head>
+<body>
+  <h2>Panel Administratora</h2>
+  <button onclick="eksport()">Eksport do CSV</button>
+  <table border="1" id="tabela">
+    <thead><tr><th>Pracownik</th><th>Data</th><th>Start</th><th>Koniec</th></tr></thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    const firebaseConfig = { /* ...jak wyżej */ };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    async function eksport() {
+      const snap = await db.collection("godziny").get();
+      let csv = "login,data,start,end\n";
+      snap.forEach(doc => {
+        const d = doc.data();
+        csv += `${d.login},${d.data},${d.start},${d.end}\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "raport.csv";
+      link.click();
+    }
+
+    async function pokaz() {
+      const snap = await db.collection("godziny").get();
+      const tbody = document.querySelector("#tabela tbody");
+      snap.forEach(doc => {
+        const d = doc.data();
+        const row = `<tr><td>${d.login}</td><td>${d.data}</td><td>${d.start}</td><td>${d.end}</td></tr>`;
+        tbody.innerHTML += row;
+      });
+    }
+    pokaz();
+  </script>
+</body>
+</html>
