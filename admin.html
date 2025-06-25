@@ -5,76 +5,47 @@
   <title>Panel Administratora</title>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background-image: url('tlo.jpg');
+      font-family: 'Roboto', sans-serif;
+      background: url('tlo.jpg') no-repeat center center fixed;
       background-size: cover;
-      background-position: center;
-      background-repeat: no-repeat;
-      padding: 2em;
-      color: #333;
-    }
-    .panel {
-      background-color: rgba(255, 255, 255, 0.9);
-      padding: 2em;
-      border-radius: 10px;
-      max-width: 1000px;
-      margin: 0 auto;
-    }
-    select, button, input {
-      padding: 0.5em 1em;
-      margin-top: 1em;
-      font-size: 1em;
+      color: #fff;
+      padding: 40px;
     }
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 1em;
+      background-color: rgba(0,0,0,0.6);
     }
     th, td {
       border: 1px solid #ccc;
-      padding: 0.5em;
+      padding: 10px;
       text-align: center;
     }
     th {
-      background: #eee;
+      background-color: rgba(255,255,255,0.2);
     }
-    .editable {
-      cursor: pointer;
+    td[contenteditable] {
+      background-color: rgba(255,255,255,0.1);
     }
   </style>
 </head>
 <body>
-  <div class="panel">
-    <h2>Panel Administratora</h2>
-
-    <label for="pracownikSelect">Wybierz pracownika:</label>
-    <select id="pracownikSelect" onchange="filtruj()">
-      <option value="wszyscy">Wszyscy</option>
-    </select>
-
-    <label for="miesiacSelect">Wybierz miesiąc:</label>
-    <select id="miesiacSelect" onchange="filtruj()">
-      <option value="wszystkie">Wszystkie</option>
-    </select>
-
-    <br>
-    <button onclick="eksportujCSV()">Eksportuj do CSV</button>
-
-    <table id="tabela">
-      <thead>
-        <tr>
-          <th>Pracownik</th>
-          <th>Data</th>
-          <th>Godzina przyjścia</th>
-          <th>Godzina wyjścia</th>
-          <th>Ilość godzin</th>
-        </tr>
-      </thead>
-      <tbody id="tabela-body"></tbody>
-    </table>
-  </div>
+  <h2>Panel Administratora</h2>
+  <table id="tabela-pracownikow">
+    <thead>
+      <tr>
+        <th>Login</th>
+        <th>Data</th>
+        <th>Wejście</th>
+        <th>Wyjście</th>
+        <th>Ilość godzin</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
 
   <script>
     const firebaseConfig = {
@@ -86,113 +57,64 @@
       appId: "1:1040181155679:web:8ffe7609b67a5e29bd08ea",
       measurementId: "G-JR8QXZZYXE"
     };
+
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
+    const tabelaBody = document.querySelector("#tabela-pracownikow tbody");
 
-    const tabelaBody = document.getElementById("tabela-body");
-    const pracownikSelect = document.getElementById("pracownikSelect");
-    const miesiacSelect = document.getElementById("miesiacSelect");
-    let wszystkieDane = [];
+    async function wczytaj() {
+      const snapshot = await db.collection("godziny").get();
+      const wszystkieDane = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      wszystkieDane.sort((a, b) => new Date(b.data) - new Date(a.data));
+
+      tabelaBody.innerHTML = "";
+      wszystkieDane.forEach(dane => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${dane.login}</td>
+          <td>${dane.data}</td>
+          <td contenteditable onblur="zapiszZmiane('${dane.id}', 'start', this.innerText)">${dane.start}</td>
+          <td contenteditable onblur="zapiszZmiane('${dane.id}', 'end', this.innerText)">${dane.end}</td>
+          <td class="godziny">${dane.godziny}</td>
+        `;
+        tabelaBody.appendChild(tr);
+      });
+    }
 
     function obliczGodziny(start, end) {
-      const [sh, sm] = start.split(":" ).map(Number);
-      const [eh, em] = end.split(":" ).map(Number);
+      if (!/^\d{2}:\d{2}$/.test(start) || !/^\d{2}:\d{2}$/.test(end)) return "0.00";
+      const [sh, sm] = start.split(":").map(Number);
+      const [eh, em] = end.split(":").map(Number);
       const startMin = sh * 60 + sm;
       const endMin = eh * 60 + em;
       const godziny = (endMin - startMin) / 60;
-      return godziny.toFixed(2);
-    }
-
-    async function wczytaj() {
-      const snap = await db.collection("godziny").get();
-      tabelaBody.innerHTML = "";
-      wszystkieDane = [];
-      const unikalni = new Set();
-      const miesiace = new Set();
-
-      snap.forEach(doc => {
-        const d = doc.data();
-        const godziny = obliczGodziny(d.start, d.end);
-        wszystkieDane.push({ id: doc.id, login: d.login, data: d.data, start: d.start, end: d.end, godziny });
-        unikalni.add(d.login);
-        const miesiac = d.data.slice(0, 7);
-        miesiace.add(miesiac);
-      });
-
-      pracownikSelect.innerHTML = '<option value="wszyscy">Wszyscy</option>';
-      unikalni.forEach(p => {
-        const opt = document.createElement("option");
-        opt.value = p;
-        opt.innerText = p;
-        pracownikSelect.appendChild(opt);
-      });
-
-      miesiacSelect.innerHTML = '<option value="wszystkie">Wszystkie</option>';
-      Array.from(miesiace).sort().forEach(m => {
-        const opt = document.createElement("option");
-        opt.value = m;
-        opt.innerText = m;
-        miesiacSelect.appendChild(opt);
-      });
-
-      filtruj();
-    }
-
-    function filtruj() {
-      const wybrany = pracownikSelect.value;
-      const miesiac = miesiacSelect.value;
-      tabelaBody.innerHTML = "";
-      wszystkieDane.forEach(row => {
-        const dataMiesiac = row.data.slice(0, 7);
-        if ((wybrany === "wszyscy" || row.login === wybrany) && (miesiac === "wszystkie" || dataMiesiac === miesiac)) {
-          const tr = document.createElement("tr");
-          tr.innerHTML = `
-            <td>${row.login}</td>
-            <td contenteditable onblur="zapiszZmiane('${row.id}', 'data', this.innerText)">${row.data}</td>
-            <td contenteditable onblur="zapiszZmiane('${row.id}', 'start', this.innerText)">${row.start}</td>
-            <td contenteditable onblur="zapiszZmiane('${row.id}', 'end', this.innerText)">${row.end}</td>
-            <td>${row.godziny}</td>
-          `;
-          tabelaBody.appendChild(tr);
-        }
-      });
+      return godziny > 0 ? godziny.toFixed(2) : "0.00";
     }
 
     async function zapiszZmiane(id, pole, wartosc) {
+      if ((pole === "start" || pole === "end") && !/^\d{2}:\d{2}$/.test(wartosc)) {
+        alert("Nieprawidłowy format godziny. Użyj formatu HH:MM");
+        wczytaj();
+        return;
+      }
       const docRef = db.collection("godziny").doc(id);
       const docSnap = await docRef.get();
-
       if (!docSnap.exists) return;
 
       const dane = docSnap.data();
       dane[pole] = wartosc;
 
-      if (pole === "start" || pole === "end") {
-        const [sh, sm] = dane.start.split(":" ).map(Number);
-        const [eh, em] = dane.end.split(":" ).map(Number);
-        const godziny = ((eh * 60 + em) - (sh * 60 + sm)) / 60;
-        dane.godziny = godziny.toFixed(2);
+      if (dane.start && dane.end && /^\d{2}:\d{2}$/.test(dane.start) && /^\d{2}:\d{2}$/.test(dane.end)) {
+        const [sh, sm] = dane.start.split(":").map(Number);
+        const [eh, em] = dane.end.split(":").map(Number);
+        const startMin = sh * 60 + sm;
+        const endMin = eh * 60 + em;
+        const godziny = (endMin - startMin) / 60;
+        dane.godziny = godziny > 0 ? godziny.toFixed(2) : "0.00";
       }
 
       await docRef.set(dane);
       wczytaj();
-    }
-
-    function eksportujCSV() {
-      const wybrany = pracownikSelect.value;
-      const miesiac = miesiacSelect.value;
-      let csv = "Pracownik;Data;Godzina przyjścia;Godzina wyjścia;Ilość godzin\n";
-      wszystkieDane.forEach(row => {
-        const dataMiesiac = row.data.slice(0, 7);
-        if ((wybrany === "wszyscy" || row.login === wybrany) && (miesiac === "wszystkie" || dataMiesiac === miesiac)) {
-          csv += `${row.login};${row.data};${row.start};${row.end};${row.godziny}\n`;
-        }
-      });
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = `obecnosc_${wybrany}_${miesiac}.csv`;
-      link.click();
     }
 
     wczytaj();
