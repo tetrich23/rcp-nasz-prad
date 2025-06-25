@@ -3,85 +3,175 @@
 <head>
   <meta charset="UTF-8" />
   <title>Panel Administratora</title>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-  <!-- SheetJS (XLSX) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- ... pozostałe skrypty ... -->
 
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --bg-gradient: linear-gradient(135deg, #2c3e50, #4f669d);
+      --panel-bg: rgba(30, 30, 47, 0.85);
+      --accent: #8ab4f8;
+      --accent-light: rgba(138, 180, 248, 0.2);
+      --text: #e0e0e0;
+      --row-hover: rgba(138, 180, 248, 0.1);
+      --btn-bg: #8ab4f8;
+      --btn-hover: #6c8ce2;
+    }
+
+    * { box-sizing: border-box; }
+
     body {
-      font-family: 'Roboto', sans-serif;
-      background: url('tlo.jpg') no-repeat center center fixed;
-      background-size: cover;
-      color: #fff;
+      margin: 0;
       padding: 40px;
-      text-align: center;
+      font-family: 'Roboto', sans-serif;
+      background: var(--bg-gradient) fixed;
+      color: var(--text);
+      display: flex;
+      justify-content: center;
     }
+
     .panel {
+      width: 100%;
       max-width: 1200px;
-      margin: 0 auto;
-      background-color: rgba(0, 0, 0, 0.6);
-      padding: 20px;
-      border-radius: 12px;
+      background: var(--panel-bg);
+      border-radius: 16px;
+      padding: 30px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.5);
     }
-    select, button {
-      margin: 10px;
-      padding: 5px 10px;
-      font-size: 16px;
+
+    h2 {
+      margin-top: 0;
+      font-size: 1.8rem;
+      letter-spacing: 1px;
     }
+
+    /* Nowe opakowanie dla filterów i przycisku */
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin: 20px 0;
+      justify-content: center;
+    }
+
+    .controls label,
+    .controls select,
+    .controls button {
+      font-size: 1rem;
+    }
+
+    select {
+      min-width: 160px;
+      padding: 8px 10px;
+      border: 1px solid var(--accent-light);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--text);
+      transition: all .3s;
+    }
+    select:hover {
+      border-color: var(--accent);
+      background: var(--accent-light);
+    }
+
+    button {
+      cursor: pointer;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      background: var(--btn-bg);
+      color: #fff;
+      transition: background .3s;
+    }
+    button:hover {
+      background: var(--btn-hover);
+    }
+
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 20px;
-      background-color: rgba(0,0,0,0.6);
+      overflow: hidden;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      background: var(--panel-bg);
     }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      background: var(--accent-light);
+      color: #fff;
+      padding: 12px;
+      font-weight: 600;
+      letter-spacing: .5px;
+    }
+
+    tbody tr:hover {
+      background: var(--row-hover);
+    }
+
     th, td {
-      border: 1px solid #ccc;
-      padding: 10px;
+      padding: 12px 8px;
       text-align: center;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
     }
-    th {
-      background-color: rgba(255,255,255,0.2);
-    }
+
     td[contenteditable] {
-      background-color: rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.1);
+      transition: background .2s;
     }
+    td[contenteditable]:focus {
+      background: rgba(255,255,255,0.2);
+      outline: none;
+    }
+
     .delete-btn {
-      background-color: #ff4444;
-      border: none;
-      color: white;
-      padding: 6px 10px;
-      cursor: pointer;
-      border-radius: 4px;
+      padding: 6px 12px;
+      background: #ff4444;
+      transition: background .3s;
+    }
+    .delete-btn:hover {
+      background: #e03333;
+    }
+
+    tfoot td {
+      padding: 14px 8px;
+      font-weight: 600;
+      background: var(--panel-bg);
+      border-top: 2px solid var(--accent);
+    }
+
+    /* Responsywność */
+    @media (max-width: 768px) {
+      .controls { flex-direction: column; }
+      thead th, td { font-size: 0.9rem; padding: 10px 6px; }
     }
   </style>
 </head>
 <body>
   <div class="panel">
     <h2>Panel Administratora</h2>
-    <label for="filterUser">Pracownik:</label>
-    <select id="filterUser" onchange="wczytaj()">
-      <option value="">Wszyscy</option>
-    </select>
 
-    <label for="filterMonth">Miesiąc:</label>
-    <select id="filterMonth" onchange="wczytaj()">
-      <option value="">Wszystkie</option>
-    </select>
+    <div class="controls">
+      <label for="filterUser">Pracownik:
+        <select id="filterUser" onchange="wczytaj()">
+          <option value="">Wszyscy</option>
+        </select>
+      </label>
 
-    <!-- EXPORT BUTTON -->
-    <button id="exportBtn">Eksport do Excela</button>
+      <label for="filterMonth">Miesiąc:
+        <select id="filterMonth" onchange="wczytaj()">
+          <option value="">Wszystkie</option>
+        </select>
+      </label>
+
+      <button id="exportBtn">Eksport do Excela</button>
+    </div>
 
     <table id="tabela-pracownikow">
       <thead>
         <tr>
-          <th>Login</th>
-          <th>Data</th>
-          <th>Wejście</th>
-          <th>Wyjście</th>
-          <th>Ilość godzin</th>
-          <th>Usuń</th>
+          <th>Login</th><th>Data</th><th>Wejście</th>
+          <th>Wyjście</th><th>Ilość godzin</th><th>Usuń</th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -89,134 +179,6 @@
     </table>
   </div>
 
-  <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyAY0AW9hCysl2jNTiWVolraGN841Q2BMz4",
-      authDomain: "rcp-online.firebaseapp.com",
-      projectId: "rcp-online",
-      storageBucket: "rcp-online.appspot.com",
-      messagingSenderId: "1040181155679",
-      appId: "1:1040181155679:web:8ffe7609b67a5e29bd08ea",
-      measurementId: "G-JR8QXZZYXE"
-    };
-
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-    const tabelaBody = document.querySelector("#tabela-pracownikow tbody");
-    const tabelaFoot = document.querySelector("#tabela-pracownikow tfoot");
-    const filterUser = document.getElementById("filterUser");
-    const filterMonth = document.getElementById("filterMonth");
-    let aktualneDane = []; // przechowa dane widoczne w tabeli
-
-    async function wczytaj() {
-      // pobieramy WSZYSTKIE dane (można później przerzucić na zapytania z where)
-      const snapshot = await db.collection("godziny").get();
-      const wszystkieDane = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-      // uzupełnienie dropdownów (tylko raz)
-      const unikalni = [...new Set(wszystkieDane.map(d => d.login))];
-      if (filterUser.options.length <= 1) filterUser.innerHTML =
-        '<option value="">Wszyscy</option>' +
-        unikalni.map(u => `<option value="${u}">${u}</option>`).join('');
-
-      const miesiace = [...new Set(
-        wszystkieDane.map(d => d.data?.slice(0,7)).filter(Boolean)
-      )];
-      if (filterMonth.options.length <= 1) filterMonth.innerHTML =
-        '<option value="">Wszystkie</option>' +
-        miesiace.map(m => `<option value="${m}">${m}</option>`).join('');
-
-      // filtrujemy po wartości dropdownów
-      aktualneDane = wszystkieDane.filter(d => {
-        return (!filterUser.value || d.login === filterUser.value) &&
-               (!filterMonth.value || (d.data && d.data.startsWith(filterMonth.value)));
-      });
-
-      // sortujemy malejąco po dacie
-      aktualneDane.sort((a, b) => new Date(b.data) - new Date(a.data));
-
-      // rysujemy tabelę
-      tabelaBody.innerHTML = "";
-      aktualneDane.forEach(dane => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${dane.login}</td>
-          <td>${dane.data}</td>
-          <td contenteditable onblur="zapiszZmiane('${dane.id}', 'start', this.innerText)">${dane.start}</td>
-          <td contenteditable onblur="zapiszZmiane('${dane.id}', 'end', this.innerText)">${dane.end}</td>
-          <td class="godziny">${dane.godziny}</td>
-          <td><button class="delete-btn" onclick="usunRekord('${dane.id}')">Usuń</button></td>
-        `;
-        tabelaBody.appendChild(tr);
-      });
-
-      // podsumowanie sumy godzin
-      rysujStopke(aktualneDane);
-    }
-
-    function rysujStopke(rows) {
-      const suma = rows
-        .reduce((acc, r) => acc + parseFloat(r.godziny || 0), 0)
-        .toFixed(2);
-      tabelaFoot.innerHTML = `
-        <tr>
-          <td colspan="4"><strong>Razem</strong></td>
-          <td><strong>${suma}</strong></td>
-          <td></td>
-        </tr>`;
-    }
-
-    function obliczGodziny(start, end) {
-      if (!/^\d{2}:\d{2}$/.test(start) || !/^\d{2}:\d{2}$/.test(end))
-        return "0.00";
-      const [sh, sm] = start.split(":").map(Number);
-      const [eh, em] = end.split(":").map(Number);
-      const godziny = ((eh*60+em) - (sh*60+sm)) / 60;
-      return godziny > 0 ? godziny.toFixed(2) : "0.00";
-    }
-
-    async function zapiszZmiane(id, pole, wartosc) {
-      if ((pole === "start" || pole === "end") &&
-          !/^\d{2}:\d{2}$/.test(wartosc)) {
-        alert("Nieprawidłowy format godziny. Użyj formatu HH:MM");
-        wczytaj(); 
-        return;
-      }
-      const docRef = db.collection("godziny").doc(id);
-      const docSnap = await docRef.get();
-      if (!docSnap.exists) return;
-      const dane = docSnap.data();
-      dane[pole] = wartosc;
-      if (dane.start && dane.end) {
-        dane.godziny = obliczGodziny(dane.start, dane.end);
-      }
-      await docRef.set(dane);
-      wczytaj();
-    }
-
-    async function usunRekord(id) {
-      if (confirm("Czy na pewno chcesz usunąć ten wpis?")) {
-        await db.collection("godziny").doc(id).delete();
-        wczytaj();
-      }
-    }
-
-    // --------- Eksport do Excela ---------------
-    document.getElementById("exportBtn")
-      .addEventListener("click", () => {
-        // tworzymy workbook i sheet z tabeli
-        const wb = XLSX.utils.book_new();
-        // usuwamy kolumnę 'Usuń' przed eksportem
-        const tabelaDoEksportu = document.getElementById("tabela-pracownikow").cloneNode(true);
-        // usuń wszystkie komórki w ostatniej kolumnie
-        tabelaDoEksportu.querySelectorAll('tr').forEach(tr => tr.removeChild(tr.lastElementChild));
-        const ws = XLSX.utils.table_to_sheet(tabelaDoEksportu);
-        XLSX.utils.book_append_sheet(wb, ws, "Godziny");
-        XLSX.writeFile(wb, "godziny.xlsx");
-      });
-
-    // ............ start ............
-    wczytaj();
-  </script>
+  <!-- Tu wklej swój JS z eksportem + Firestore -->
 </body>
 </html>
