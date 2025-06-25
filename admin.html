@@ -95,8 +95,8 @@
     let wszystkieDane = [];
 
     function obliczGodziny(start, end) {
-      const [sh, sm] = start.split(":".map(Number));
-      const [eh, em] = end.split(":".map(Number));
+      const [sh, sm] = start.split(":" ).map(Number);
+      const [eh, em] = end.split(":" ).map(Number);
       const startMin = sh * 60 + sm;
       const endMin = eh * 60 + em;
       const godziny = (endMin - startMin) / 60;
@@ -158,8 +158,24 @@
       });
     }
 
-    function zapiszZmiane(id, pole, wartosc) {
-      db.collection("godziny").doc(id).update({ [pole]: wartosc }).then(wczytaj);
+    async function zapiszZmiane(id, pole, wartosc) {
+      const docRef = db.collection("godziny").doc(id);
+      const docSnap = await docRef.get();
+
+      if (!docSnap.exists) return;
+
+      const dane = docSnap.data();
+      dane[pole] = wartosc;
+
+      if (pole === "start" || pole === "end") {
+        const [sh, sm] = dane.start.split(":" ).map(Number);
+        const [eh, em] = dane.end.split(":" ).map(Number);
+        const godziny = ((eh * 60 + em) - (sh * 60 + sm)) / 60;
+        dane.godziny = godziny.toFixed(2);
+      }
+
+      await docRef.set(dane);
+      wczytaj();
     }
 
     function eksportujCSV() {
@@ -183,4 +199,3 @@
   </script>
 </body>
 </html>
-
