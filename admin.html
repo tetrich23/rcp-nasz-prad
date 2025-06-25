@@ -44,6 +44,14 @@
     td[contenteditable] {
       background-color: rgba(255,255,255,0.1);
     }
+    .delete-btn {
+      background-color: #ff4444;
+      border: none;
+      color: white;
+      padding: 6px 10px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
   </style>
 </head>
 <body>
@@ -65,6 +73,7 @@
           <th>Wejście</th>
           <th>Wyjście</th>
           <th>Ilość godzin</th>
+          <th>Usuń</th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -92,16 +101,19 @@
       const snapshot = await db.collection("godziny").get();
       const wszystkieDane = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-      // Uzupełnij filtry
       const unikalni = [...new Set(wszystkieDane.map(d => d.login))];
-      filterUser.innerHTML = '<option value="">Wszyscy</option>' + unikalni.map(u => `<option value="${u}">${u}</option>`).join('');
+      if (filterUser.options.length <= 1) {
+        filterUser.innerHTML = '<option value="">Wszyscy</option>' + unikalni.map(u => `<option value="${u}">${u}</option>`).join('');
+      }
 
-      const miesiace = [...new Set(wszystkieDane.map(d => d.data.slice(0,7)))];
-      filterMonth.innerHTML = '<option value="">Wszystkie</option>' + miesiace.map(m => `<option value="${m}">${m}</option>`).join('');
+      const miesiace = [...new Set(wszystkieDane.map(d => d.data?.slice(0,7)).filter(Boolean))];
+      if (filterMonth.options.length <= 1) {
+        filterMonth.innerHTML = '<option value="">Wszystkie</option>' + miesiace.map(m => `<option value="${m}">${m}</option>`).join('');
+      }
 
       const filtrowane = wszystkieDane.filter(d => {
         return (!filterUser.value || d.login === filterUser.value) &&
-               (!filterMonth.value || d.data.startsWith(filterMonth.value));
+               (!filterMonth.value || (d.data && d.data.startsWith(filterMonth.value)));
       });
 
       filtrowane.sort((a, b) => new Date(b.data) - new Date(a.data));
@@ -115,6 +127,7 @@
           <td contenteditable onblur="zapiszZmiane('${dane.id}', 'start', this.innerText)">${dane.start}</td>
           <td contenteditable onblur="zapiszZmiane('${dane.id}', 'end', this.innerText)">${dane.end}</td>
           <td class="godziny">${dane.godziny}</td>
+          <td><button class="delete-btn" onclick="usunRekord('${dane.id}')">Usuń</button></td>
         `;
         tabelaBody.appendChild(tr);
       });
@@ -154,6 +167,13 @@
 
       await docRef.set(dane);
       wczytaj();
+    }
+
+    async function usunRekord(id) {
+      if (confirm("Czy na pewno chcesz usunąć ten wpis?")) {
+        await db.collection("godziny").doc(id).delete();
+        wczytaj();
+      }
     }
 
     wczytaj();
