@@ -5,6 +5,9 @@
   <title>Panel Administratora</title>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <!-- SheetJS (XLSX) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
   <style>
     body {
@@ -22,9 +25,9 @@
       padding: 20px;
       border-radius: 12px;
     }
-    select {
+    select, button {
       margin: 10px;
-      padding: 5px;
+      padding: 5px 10px;
       font-size: 16px;
     }
     table {
@@ -61,10 +64,15 @@
     <select id="filterUser" onchange="wczytaj()">
       <option value="">Wszyscy</option>
     </select>
+
     <label for="filterMonth">Miesiąc:</label>
     <select id="filterMonth" onchange="wczytaj()">
       <option value="">Wszystkie</option>
     </select>
+
+    <!-- EXPORT BUTTON -->
+    <button id="exportBtn">Eksport do Excela</button>
+
     <table id="tabela-pracownikow">
       <thead>
         <tr>
@@ -77,6 +85,7 @@
         </tr>
       </thead>
       <tbody></tbody>
+      <tfoot></tfoot>
     </table>
   </div>
 
@@ -94,32 +103,41 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     const tabelaBody = document.querySelector("#tabela-pracownikow tbody");
+    const tabelaFoot = document.querySelector("#tabela-pracownikow tfoot");
     const filterUser = document.getElementById("filterUser");
     const filterMonth = document.getElementById("filterMonth");
+    let aktualneDane = []; // przechowa dane widoczne w tabeli
 
     async function wczytaj() {
+      // pobieramy WSZYSTKIE dane (można później przerzucić na zapytania z where)
       const snapshot = await db.collection("godziny").get();
       const wszystkieDane = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
+      // uzupełnienie dropdownów (tylko raz)
       const unikalni = [...new Set(wszystkieDane.map(d => d.login))];
-      if (filterUser.options.length <= 1) {
-        filterUser.innerHTML = '<option value="">Wszyscy</option>' + unikalni.map(u => `<option value="${u}">${u}</option>`).join('');
-      }
+      if (filterUser.options.length <= 1) filterUser.innerHTML =
+        '<option value="">Wszyscy</option>' +
+        unikalni.map(u => `<option value="${u}">${u}</option>`).join('');
 
-      const miesiace = [...new Set(wszystkieDane.map(d => d.data?.slice(0,7)).filter(Boolean))];
-      if (filterMonth.options.length <= 1) {
-        filterMonth.innerHTML = '<option value="">Wszystkie</option>' + miesiace.map(m => `<option value="${m}">${m}</option>`).join('');
-      }
+      const miesiace = [...new Set(
+        wszystkieDane.map(d => d.data?.slice(0,7)).filter(Boolean)
+      )];
+      if (filterMonth.options.length <= 1) filterMonth.innerHTML =
+        '<option value="">Wszystkie</option>' +
+        miesiace.map(m => `<option value="${m}">${m}</option>`).join('');
 
-      const filtrowane = wszystkieDane.filter(d => {
+      // filtrujemy po wartości dropdownów
+      aktualneDane = wszystkieDane.filter(d => {
         return (!filterUser.value || d.login === filterUser.value) &&
                (!filterMonth.value || (d.data && d.data.startsWith(filterMonth.value)));
       });
 
-      filtrowane.sort((a, b) => new Date(b.data) - new Date(a.data));
+      // sortujemy malejąco po dacie
+      aktualneDane.sort((a, b) => new Date(b.data) - new Date(a.data));
 
+      // rysujemy tabelę
       tabelaBody.innerHTML = "";
-      filtrowane.forEach(dane => {
+      aktualneDane.forEach(dane => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>${dane.login}</td>
@@ -131,40 +149,47 @@
         `;
         tabelaBody.appendChild(tr);
       });
+
+      // podsumowanie sumy godzin
+      rysujStopke(aktualneDane);
+    }
+
+    function rysujStopke(rows) {
+      const suma = rows
+        .reduce((acc, r) => acc + parseFloat(r.godziny || 0), 0)
+        .toFixed(2);
+      tabelaFoot.innerHTML = `
+        <tr>
+          <td colspan="4"><strong>Razem</strong></td>
+          <td><strong>${suma}</strong></td>
+          <td></td>
+        </tr>`;
     }
 
     function obliczGodziny(start, end) {
-      if (!/^\d{2}:\d{2}$/.test(start) || !/^\d{2}:\d{2}$/.test(end)) return "0.00";
+      if (!/^\d{2}:\d{2}$/.test(start) || !/^\d{2}:\d{2}$/.test(end))
+        return "0.00";
       const [sh, sm] = start.split(":").map(Number);
       const [eh, em] = end.split(":").map(Number);
-      const startMin = sh * 60 + sm;
-      const endMin = eh * 60 + em;
-      const godziny = (endMin - startMin) / 60;
+      const godziny = ((eh*60+em) - (sh*60+sm)) / 60;
       return godziny > 0 ? godziny.toFixed(2) : "0.00";
     }
 
     async function zapiszZmiane(id, pole, wartosc) {
-      if ((pole === "start" || pole === "end") && !/^\d{2}:\d{2}$/.test(wartosc)) {
+      if ((pole === "start" || pole === "end") &&
+          !/^\d{2}:\d{2}$/.test(wartosc)) {
         alert("Nieprawidłowy format godziny. Użyj formatu HH:MM");
-        wczytaj();
+        wczytaj(); 
         return;
       }
       const docRef = db.collection("godziny").doc(id);
       const docSnap = await docRef.get();
       if (!docSnap.exists) return;
-
       const dane = docSnap.data();
       dane[pole] = wartosc;
-
-      if (dane.start && dane.end && /^\d{2}:\d{2}$/.test(dane.start) && /^\d{2}:\d{2}$/.test(dane.end)) {
-        const [sh, sm] = dane.start.split(":").map(Number);
-        const [eh, em] = dane.end.split(":").map(Number);
-        const startMin = sh * 60 + sm;
-        const endMin = eh * 60 + em;
-        const godziny = (endMin - startMin) / 60;
-        dane.godziny = godziny > 0 ? godziny.toFixed(2) : "0.00";
+      if (dane.start && dane.end) {
+        dane.godziny = obliczGodziny(dane.start, dane.end);
       }
-
       await docRef.set(dane);
       wczytaj();
     }
@@ -176,6 +201,21 @@
       }
     }
 
+    // --------- Eksport do Excela ---------------
+    document.getElementById("exportBtn")
+      .addEventListener("click", () => {
+        // tworzymy workbook i sheet z tabeli
+        const wb = XLSX.utils.book_new();
+        // usuwamy kolumnę 'Usuń' przed eksportem
+        const tabelaDoEksportu = document.getElementById("tabela-pracownikow").cloneNode(true);
+        // usuń wszystkie komórki w ostatniej kolumnie
+        tabelaDoEksportu.querySelectorAll('tr').forEach(tr => tr.removeChild(tr.lastElementChild));
+        const ws = XLSX.utils.table_to_sheet(tabelaDoEksportu);
+        XLSX.utils.book_append_sheet(wb, ws, "Godziny");
+        XLSX.writeFile(wb, "godziny.xlsx");
+      });
+
+    // ............ start ............
     wczytaj();
   </script>
 </body>
