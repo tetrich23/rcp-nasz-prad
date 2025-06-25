@@ -7,15 +7,13 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
   <style>
     body {
-      margin: 0;
-      font-family: 'Roboto', sans-serif;
-      background: url('https://images.unsplash.com/photo-1568605114967-8130f3a36994') no-repeat center center fixed;
+      font-family: Arial, sans-serif;
+      background-image: url('tlo.jpg');
       background-size: cover;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      color: #fff;
+      background-position: center;
+      background-repeat: no-repeat;
+      padding: 2em;
+      color: #333;
     }
     .panel {
       background-color: rgba(255, 255, 255, 0.9);
@@ -52,6 +50,12 @@
     <select id="pracownikSelect" onchange="filtruj()">
       <option value="wszyscy">Wszyscy</option>
     </select>
+
+    <label for="miesiacSelect">Wybierz miesiąc:</label>
+    <select id="miesiacSelect" onchange="filtruj()">
+      <option value="wszystkie">Wszystkie</option>
+    </select>
+
     <br>
     <button onclick="eksportujCSV()">Eksportuj do CSV</button>
 
@@ -84,6 +88,7 @@
 
     const tabelaBody = document.getElementById("tabela-body");
     const pracownikSelect = document.getElementById("pracownikSelect");
+    const miesiacSelect = document.getElementById("miesiacSelect");
     let wszystkieDane = [];
 
     function obliczGodziny(start, end) {
@@ -100,12 +105,15 @@
       tabelaBody.innerHTML = "";
       wszystkieDane = [];
       const unikalni = new Set();
+      const miesiace = new Set();
 
       snap.forEach(doc => {
         const d = doc.data();
         const godziny = obliczGodziny(d.start, d.end);
         wszystkieDane.push({ login: d.login, data: d.data, start: d.start, end: d.end, godziny });
         unikalni.add(d.login);
+        const miesiac = d.data.slice(0, 7);
+        miesiace.add(miesiac);
       });
 
       pracownikSelect.innerHTML = '<option value="wszyscy">Wszyscy</option>';
@@ -116,14 +124,24 @@
         pracownikSelect.appendChild(opt);
       });
 
+      miesiacSelect.innerHTML = '<option value="wszystkie">Wszystkie</option>';
+      Array.from(miesiace).sort().forEach(m => {
+        const opt = document.createElement("option");
+        opt.value = m;
+        opt.innerText = m;
+        miesiacSelect.appendChild(opt);
+      });
+
       filtruj();
     }
 
     function filtruj() {
       const wybrany = pracownikSelect.value;
+      const miesiac = miesiacSelect.value;
       tabelaBody.innerHTML = "";
       wszystkieDane.forEach(row => {
-        if (wybrany === "wszyscy" || row.login === wybrany) {
+        const dataMiesiac = row.data.slice(0, 7);
+        if ((wybrany === "wszyscy" || row.login === wybrany) && (miesiac === "wszystkie" || dataMiesiac === miesiac)) {
           const tr = document.createElement("tr");
           tr.innerHTML = `<td>${row.login}</td><td>${row.data}</td><td>${row.start}</td><td>${row.end}</td><td>${row.godziny}</td>`;
           tabelaBody.appendChild(tr);
@@ -133,16 +151,18 @@
 
     function eksportujCSV() {
       const wybrany = pracownikSelect.value;
+      const miesiac = miesiacSelect.value;
       let csv = "Pracownik;Data;Godzina przyjścia;Godzina wyjścia;Ilość godzin\n";
       wszystkieDane.forEach(row => {
-        if (wybrany === "wszyscy" || row.login === wybrany) {
+        const dataMiesiac = row.data.slice(0, 7);
+        if ((wybrany === "wszyscy" || row.login === wybrany) && (miesiac === "wszystkie" || dataMiesiac === miesiac)) {
           csv += `${row.login};${row.data};${row.start};${row.end};${row.godziny}\n`;
         }
       });
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      link.download = `obecnosc_${wybrany}.csv`;
+      link.download = `obecnosc_${wybrany}_${miesiac}.csv`;
       link.click();
     }
 
