@@ -22,7 +22,7 @@
       max-width: 1000px;
       margin: 0 auto;
     }
-    select, button {
+    select, button, input {
       padding: 0.5em 1em;
       margin-top: 1em;
       font-size: 1em;
@@ -39,6 +39,9 @@
     }
     th {
       background: #eee;
+    }
+    .editable {
+      cursor: pointer;
     }
   </style>
 </head>
@@ -92,8 +95,8 @@
     let wszystkieDane = [];
 
     function obliczGodziny(start, end) {
-      const [sh, sm] = start.split(":").map(Number);
-      const [eh, em] = end.split(":").map(Number);
+      const [sh, sm] = start.split(":".map(Number));
+      const [eh, em] = end.split(":".map(Number));
       const startMin = sh * 60 + sm;
       const endMin = eh * 60 + em;
       const godziny = (endMin - startMin) / 60;
@@ -110,7 +113,7 @@
       snap.forEach(doc => {
         const d = doc.data();
         const godziny = obliczGodziny(d.start, d.end);
-        wszystkieDane.push({ login: d.login, data: d.data, start: d.start, end: d.end, godziny });
+        wszystkieDane.push({ id: doc.id, login: d.login, data: d.data, start: d.start, end: d.end, godziny });
         unikalni.add(d.login);
         const miesiac = d.data.slice(0, 7);
         miesiace.add(miesiac);
@@ -143,10 +146,20 @@
         const dataMiesiac = row.data.slice(0, 7);
         if ((wybrany === "wszyscy" || row.login === wybrany) && (miesiac === "wszystkie" || dataMiesiac === miesiac)) {
           const tr = document.createElement("tr");
-          tr.innerHTML = `<td>${row.login}</td><td>${row.data}</td><td>${row.start}</td><td>${row.end}</td><td>${row.godziny}</td>`;
+          tr.innerHTML = `
+            <td>${row.login}</td>
+            <td contenteditable onblur="zapiszZmiane('${row.id}', 'data', this.innerText)">${row.data}</td>
+            <td contenteditable onblur="zapiszZmiane('${row.id}', 'start', this.innerText)">${row.start}</td>
+            <td contenteditable onblur="zapiszZmiane('${row.id}', 'end', this.innerText)">${row.end}</td>
+            <td>${row.godziny}</td>
+          `;
           tabelaBody.appendChild(tr);
         }
       });
+    }
+
+    function zapiszZmiane(id, pole, wartosc) {
+      db.collection("godziny").doc(id).update({ [pole]: wartosc }).then(wczytaj);
     }
 
     function eksportujCSV() {
@@ -170,3 +183,4 @@
   </script>
 </body>
 </html>
+
