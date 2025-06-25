@@ -13,10 +13,24 @@
       background-size: cover;
       color: #fff;
       padding: 40px;
+      text-align: center;
+    }
+    .panel {
+      max-width: 1200px;
+      margin: 0 auto;
+      background-color: rgba(0, 0, 0, 0.6);
+      padding: 20px;
+      border-radius: 12px;
+    }
+    select {
+      margin: 10px;
+      padding: 5px;
+      font-size: 16px;
     }
     table {
       width: 100%;
       border-collapse: collapse;
+      margin-top: 20px;
       background-color: rgba(0,0,0,0.6);
     }
     th, td {
@@ -33,19 +47,29 @@
   </style>
 </head>
 <body>
-  <h2>Panel Administratora</h2>
-  <table id="tabela-pracownikow">
-    <thead>
-      <tr>
-        <th>Login</th>
-        <th>Data</th>
-        <th>Wejście</th>
-        <th>Wyjście</th>
-        <th>Ilość godzin</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+  <div class="panel">
+    <h2>Panel Administratora</h2>
+    <label for="filterUser">Pracownik:</label>
+    <select id="filterUser" onchange="wczytaj()">
+      <option value="">Wszyscy</option>
+    </select>
+    <label for="filterMonth">Miesiąc:</label>
+    <select id="filterMonth" onchange="wczytaj()">
+      <option value="">Wszystkie</option>
+    </select>
+    <table id="tabela-pracownikow">
+      <thead>
+        <tr>
+          <th>Login</th>
+          <th>Data</th>
+          <th>Wejście</th>
+          <th>Wyjście</th>
+          <th>Ilość godzin</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
 
   <script>
     const firebaseConfig = {
@@ -61,14 +85,29 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     const tabelaBody = document.querySelector("#tabela-pracownikow tbody");
+    const filterUser = document.getElementById("filterUser");
+    const filterMonth = document.getElementById("filterMonth");
 
     async function wczytaj() {
       const snapshot = await db.collection("godziny").get();
       const wszystkieDane = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      wszystkieDane.sort((a, b) => new Date(b.data) - new Date(a.data));
+
+      // Uzupełnij filtry
+      const unikalni = [...new Set(wszystkieDane.map(d => d.login))];
+      filterUser.innerHTML = '<option value="">Wszyscy</option>' + unikalni.map(u => `<option value="${u}">${u}</option>`).join('');
+
+      const miesiace = [...new Set(wszystkieDane.map(d => d.data.slice(0,7)))];
+      filterMonth.innerHTML = '<option value="">Wszystkie</option>' + miesiace.map(m => `<option value="${m}">${m}</option>`).join('');
+
+      const filtrowane = wszystkieDane.filter(d => {
+        return (!filterUser.value || d.login === filterUser.value) &&
+               (!filterMonth.value || d.data.startsWith(filterMonth.value));
+      });
+
+      filtrowane.sort((a, b) => new Date(b.data) - new Date(a.data));
 
       tabelaBody.innerHTML = "";
-      wszystkieDane.forEach(dane => {
+      filtrowane.forEach(dane => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>${dane.login}</td>
